@@ -39,6 +39,42 @@ function woocommerce_sales_evaluation_sanitize_date_param($key, $default)
     return $value;
 }
 
+function woocommerce_sales_evaluation_get_referral_source_config($option)
+{
+    $sources = array(
+        'google' => array(
+            'key' => 'google',
+            'title' => 'การขายจาก Google',
+            'label' => 'Google',
+            'stats_label' => 'คำสั่งซื้อจาก Google',
+            'keywords' => array('google'),
+        ),
+        'chatgpt' => array(
+            'key' => 'chatgpt',
+            'title' => 'การขายจาก ChatGPT',
+            'label' => 'ChatGPT',
+            'stats_label' => 'คำสั่งซื้อจาก ChatGPT',
+            'keywords' => array('chatgpt', 'chatgpt.com'),
+        ),
+        'bing' => array(
+            'key' => 'bing',
+            'title' => 'การขายจาก Bing',
+            'label' => 'Bing',
+            'stats_label' => 'คำสั่งซื้อจาก Bing',
+            'keywords' => array('bing', 'bing.com'),
+        ),
+        'line' => array(
+            'key' => 'line',
+            'title' => 'การขายจาก LINE',
+            'label' => 'LINE',
+            'stats_label' => 'คำสั่งซื้อจาก LINE',
+            'keywords' => array('Safari Line', 'naver.line.android'),
+        ),
+    );
+
+    return isset($sources[$option]) ? $sources[$option] : $sources['google'];
+}
+
 function woocommerce_sales_evaluation_get_total_order_count($start_date, $end_date)
 {
     global $wpdb;
@@ -63,10 +99,11 @@ function woocommerce_sales_evaluation_get_total_order_count($start_date, $end_da
     ));
 }
 
-function woocommerce_sales_evaluation_get_google_referral_order_ids($start_date, $end_date)
+function woocommerce_sales_evaluation_get_referral_order_ids($start_date, $end_date, $option = 'google')
 {
     global $wpdb;
 
+    $config = woocommerce_sales_evaluation_get_referral_source_config($option);
     $statuses = array(
         'wc-completed',
         'wc-processing',
@@ -80,8 +117,14 @@ function woocommerce_sales_evaluation_get_google_referral_order_ids($start_date,
     $placeholders = implode(', ', array_fill(0, count($statuses), '%s'));
     $from = $start_date . ' 00:00:00';
     $to = $end_date . ' 23:59:59';
-    $like = '%' . $wpdb->esc_like('google') . '%';
+    $keyword_placeholders = array();
 
+    foreach ($config['keywords'] as $keyword) {
+        $keyword_placeholders[] = '%' . $wpdb->esc_like($keyword) . '%';
+        $keyword_placeholders[] = '%' . $wpdb->esc_like($keyword) . '%';
+    }
+
+    $like_conditions = array_fill(0, count($config['keywords']), '(LOWER(pm.meta_key) LIKE %s OR LOWER(pm.meta_value) LIKE %s)');
     $sql = "SELECT DISTINCT p.ID
         FROM {$wpdb->posts} p
         INNER JOIN {$wpdb->postmeta} pm ON pm.post_id = p.ID
@@ -90,12 +133,12 @@ function woocommerce_sales_evaluation_get_google_referral_order_ids($start_date,
           AND p.post_date BETWEEN %s AND %s
           AND pm.meta_key != ' '
           AND TRIM(COALESCE(pm.meta_value, '')) != ''
-          AND (LOWER(pm.meta_key) LIKE %s OR LOWER(pm.meta_value) LIKE %s)";
+          AND (" . implode(' OR ', $like_conditions) . ")";
 
-    return $wpdb->get_col($wpdb->prepare($sql, array_merge($statuses, array($from, $to, $like, $like))));
+    return $wpdb->get_col($wpdb->prepare($sql, array_merge($statuses, array($from, $to), $keyword_placeholders)));
 }
 
-function woocommerce_sales_evaluation_get_google_referral_totals($order_ids, $completed_only = false)
+function woocommerce_sales_evaluation_get_referral_totals($order_ids, $completed_only = false)
 {
     global $wpdb;
 
@@ -118,7 +161,7 @@ function woocommerce_sales_evaluation_get_google_referral_totals($order_ids, $co
     return (float) $wpdb->get_var($wpdb->prepare($sql, $args));
 }
 
-function woocommerce_sales_evaluation_get_google_referral_stats($start_date, $end_date)
+function woocommerce_sales_evaluation_get_referral_stats($start_date, $end_date, $option = 'google')
 {
     if (!function_exists('wc_get_order')) {
         return array('error' => 'WooCommerce ไม่ถูกติดตั้งหรือไม่พร้อมใช้งาน');
@@ -135,23 +178,27 @@ function woocommerce_sales_evaluation_get_google_referral_stats($start_date, $en
         return array('error' => 'รูปแบบวันที่ไม่ถูกต้อง โปรดใช้ YYYY-MM-DD');
     }
 
+    $config = woocommerce_sales_evaluation_get_referral_source_config($option);
     $total_orders = woocommerce_sales_evaluation_get_total_order_count($start_date, $end_date);
-    $google_order_ids = woocommerce_sales_evaluation_get_google_referral_order_ids($start_date, $end_date);
-    $google_orders_count = count($google_order_ids);
-    $google_total_amount = woocommerce_sales_evaluation_get_google_referral_totals($google_order_ids, false);
-    $google_completed_total = woocommerce_sales_evaluation_get_google_referral_totals($google_order_ids, true);
-    $percentage = $total_orders > 0 ? round(($google_orders_count / $total_orders) * 100, 2) : 0;
+    $referral_order_ids = woocommerce_sales_evaluation_get_referral_order_ids($start_date, $end_date, $option);
+    $referral_orders_count = count($referral_order_ids);
+    $referral_total_amount = woocommerce_sales_evaluation_get_referral_totals($referral_order_ids, false);
+    $referral_completed_total = woocommerce_sales_evaluation_get_referral_totals($referral_order_ids, true);
+    $percentage = $total_orders > 0 ? round(($referral_orders_count / $total_orders) * 100, 2) : 0;
 
     return array(
         'total_orders' => $total_orders,
-        'google_orders' => $google_orders_count,
-        'google_total' => $google_total_amount,
-        'google_completed_total' => $google_completed_total,
+        'orders' => $referral_orders_count,
+        'data_total' => $referral_total_amount,
+        'data_completed_total' => $referral_completed_total,
         'percentage' => $percentage,
+        'source_title' => $config['title'],
+        'source_label' => $config['label'],
+        'stats_label' => $config['stats_label'],
     );
 }
 
-function woocommerce_sales_evaluation_get_google_referral_value($order)
+function woocommerce_sales_evaluation_get_referral_value($order, $option = 'google')
 {
     global $wpdb;
 
@@ -159,32 +206,35 @@ function woocommerce_sales_evaluation_get_google_referral_value($order)
         return '';
     }
 
+    $config = woocommerce_sales_evaluation_get_referral_source_config($option);
     $order_id = $order->get_id();
-    $like = '%' . $wpdb->esc_like('Google') . '%';
+    $like_values = array();
 
-    $sql = $wpdb->prepare(
-        "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND TRIM(COALESCE(meta_value, '')) != '' AND meta_value LIKE %s ORDER BY meta_id ASC LIMIT 1",
-        $order_id,
-        $like
-    );
+    foreach ($config['keywords'] as $keyword) {
+        $like_values[] = '%' . $wpdb->esc_like($keyword) . '%';
+    }
 
-    $value = $wpdb->get_var($sql);
+    $like_condition = implode(' OR ', array_fill(0, count($like_values), 'LOWER(meta_value) LIKE %s'));
+    $sql = "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND TRIM(COALESCE(meta_value, '')) != '' AND ($like_condition) ORDER BY meta_id ASC LIMIT 1";
+
+    $query = $wpdb->prepare($sql, array_merge(array($order_id), $like_values));
+    $value = $wpdb->get_var($query);
     return is_string($value) ? trim($value) : '';
 }
 
-function woocommerce_sales_evaluation_get_google_referral_orders($start_date, $end_date)
+function woocommerce_sales_evaluation_get_referral_orders($start_date, $end_date, $option = 'google')
 {
     if (!function_exists('wc_get_order')) {
         return array();
     }
 
-    $order_ids = woocommerce_sales_evaluation_get_google_referral_order_ids($start_date, $end_date);
+    $order_ids = woocommerce_sales_evaluation_get_referral_order_ids($start_date, $end_date, $option);
     $orders = array();
 
     foreach ($order_ids as $order_id) {
         $order = wc_get_order($order_id);
         if ($order) {
-            $referral = woocommerce_sales_evaluation_get_google_referral_value($order);
+            $referral = woocommerce_sales_evaluation_get_referral_value($order, $option);
             if ($referral !== '') {
                 $orders[] = $order;
             }
@@ -266,24 +316,31 @@ function woocommerce_sales_evaluation_page()
         <div style="display: flex;">
             <div class="leftside no-print">
                 <h1>Sale Evaluation</h1>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=google-ads" <?php if(isset($_GET['option']) && $_GET['option'] == "google-ads") { echo "class='active'"; } ?>>Google Ads</a>
+                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=google" <?php if(isset($_GET['option']) && $_GET['option'] == "google") { echo "class='active'"; } ?>>📕 Google</a>
+                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=bing" <?php if(isset($_GET['option']) && $_GET['option'] == "bing") { echo "class='active'"; } ?>>📘 Bing</a>
+                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=chatgpt" <?php if(isset($_GET['option']) && $_GET['option'] == "chatgpt") { echo "class='active'"; } ?>>🤖 ChatGPT</a>
+                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=line" <?php if(isset($_GET['option']) && $_GET['option'] == "line") { echo "class='active'"; } ?>>📗 LINE</a>
+                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation" <?php if(!isset($_GET['option'])) { echo "class='active'"; } ?>>📜 คู่มือการใช้งาน</a>
             </div>
             <div class="container">
-                <?php if(isset($_GET['option']) && $_GET['option'] == "google-ads") {
+                <?php
+                $option = isset($_GET['option']) ? sanitize_text_field($_GET['option']) : null;
+                if (in_array($option, array('google', 'chatgpt', 'bing', 'line'), true)) {
+                    $source_config = woocommerce_sales_evaluation_get_referral_source_config($option);
                     $start_date = woocommerce_sales_evaluation_sanitize_date_param('start_date', date('Y-m-01'));
                     $end_date = woocommerce_sales_evaluation_sanitize_date_param('end_date', date('Y-m-t'));
                     if (function_exists('wc_get_orders')) {
-                        $stats = woocommerce_sales_evaluation_get_google_referral_stats($start_date, $end_date);
+                        $stats = woocommerce_sales_evaluation_get_referral_stats($start_date, $end_date, $option);
                     } else {
                         $stats = array('error' => 'WooCommerce ไม่ถูกติดตั้งหรือไม่พร้อมใช้งาน');
                     }
                 ?>
-                <h1>การขายจาก Google</h1>
+                <h1><?php echo esc_html($source_config['title']); ?></h1>
                 <div style="padding: 0 25px 25px 25px;">
                     <p><strong>ออกรายงานเมื่อวันที่:</strong> <?=date("d/m/Y")?></p>
                     <form method="get" action="">
                         <input type="hidden" name="page" value="woocommerce-sales-evaluation" />
-                        <input type="hidden" name="option" value="google-ads" />
+                        <input type="hidden" name="option" value="<?php echo esc_attr($option); ?>" />
                         <div style="display: grid; grid-template-columns: 1fr 1fr 100px 100px; gap: 10px;">
                             <div>
                                 <label for="start_date">วันที่เริ่มต้น: </label><br>
@@ -313,18 +370,18 @@ function woocommerce_sales_evaluation_page()
                                 <span><?php echo esc_html($stats['total_orders']); ?> รายการ</span>
                             </div>
                             <div class="stat_card" style="border: 1.5px solid #AA1C41; color: #AA1C41;">
-                                <strong>🗂️ คำสั่งซื้อจาก Google</strong><br>
-                                <span><?php echo esc_html($stats['google_orders']); ?> รายการ (<?php echo esc_html($stats['percentage']); ?>%)</span>
+                                <strong>🗂️ <?php echo esc_html($stats['stats_label']); ?></strong><br>
+                                <span><?php echo esc_html($stats['orders']); ?> รายการ (<?php echo esc_html($stats['percentage']); ?>%)</span>
                             </div>
                             <div class="stat_card" style="border: 1.5px solid #4274D9; color: #4274D9;">
-                                <strong>💰 ยอดจาก Google</strong><br>
-                                <span><?php echo function_exists('wc_price') ? wc_price($stats['google_total']) : number_format($stats['google_total'], 2); ?></span>
+                                <strong>💰 ยอดจาก <?php echo esc_html($stats['source_label']); ?></strong><br>
+                                <span><?php echo function_exists('wc_price') ? wc_price($stats['data_total']) : number_format($stats['data_total'], 2); ?></span>
                             </div>
                             <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
                                 <strong>✅ ปิดการขายได้</strong><br>
                                 <span>
-                                    <?php echo function_exists('wc_price') ? wc_price($stats['google_completed_total']) : number_format($stats['google_completed_total'], 2); ?>
-                                    (<?php echo $stats['google_total'] > 0 ? number_format(($stats['google_completed_total'] / $stats['google_total']) * 100, 2) : '0.00'; ?>%)
+                                    <?php echo function_exists('wc_price') ? wc_price($stats['data_completed_total']) : number_format($stats['data_completed_total'], 2); ?>
+                                    (<?php echo $stats['data_total'] > 0 ? number_format(($stats['data_completed_total'] / $stats['data_total']) * 100, 2) : '0.00'; ?>%)
                                 </span>
                             </div>
                         </div>
@@ -387,8 +444,8 @@ function woocommerce_sales_evaluation_page()
                             }
                         </style>
                         <?php
-                        $google_orders = woocommerce_sales_evaluation_get_google_referral_orders($start_date, $end_date);
-                        if (!empty($google_orders)) :
+                        $orders = woocommerce_sales_evaluation_get_referral_orders($start_date, $end_date, $option);
+                        if (!empty($orders)) :
                         ?>
                         <div style="margin-top:24px; overflow:auto;">
                             <table class="wp-list-table widefat fixed striped" style="width:100%;border-collapse:collapse;">
@@ -403,7 +460,7 @@ function woocommerce_sales_evaluation_page()
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($google_orders as $order) : ?>
+                                    <?php foreach ($orders as $order) : ?>
                                         <tr>
                                             <td>
                                                 <?php echo esc_html($order->get_date_created() ? $order->get_date_created()->date_i18n('Y-m-d H:i') : 'N/A'); ?>
@@ -414,7 +471,8 @@ function woocommerce_sales_evaluation_page()
                                             </td>
                                             <td>
                                                 <span class="badge
-                                                <?php if($order->get_status() == "cancelled" || $order->get_status() == "failed") { echo "danger"; } ?> 
+                                                <?php if($order->get_status() == "cancelled" || $order->get_status() == "failed" || $order->get_status() == "refunded") { echo "danger"; } ?> 
+                                                <?php if($order->get_status() == "processing") { echo "primary"; } ?> 
                                                 <?php if($order->get_status() == "completed") { echo "success"; } ?> 
                                                 <?php if($order->get_status() == "on-hold") { echo "pending"; } ?>
                                                 ">
@@ -425,7 +483,7 @@ function woocommerce_sales_evaluation_page()
                                                 <?php echo function_exists('wc_price') ? wc_price($order->get_total()) : number_format($order->get_total(), 2); ?>
                                             </td>
                                             <td>
-                                                <?php echo esc_html(woocommerce_sales_evaluation_get_google_referral_value($order)); ?>
+                                                <?php echo esc_html(woocommerce_sales_evaluation_get_referral_value($order, $option)); ?>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -438,6 +496,11 @@ function woocommerce_sales_evaluation_page()
                 <?php } else { ?>
                 <h1>คู่มือการใช้งาน</h1>
                 <div style="padding: 0 25px 25px 25px;">
+                    <h2>ปลั้กอินนี้คืออะไร ?</h2>
+                    <p>
+                        ปลั้กอิน Sales Evaluation ถูกออกแบบขึ้นมาเพื่อประเมินสัดส่วนคำสั่งซื้อที่มาจาก Google ออกมาจากคำสั่งซื้อทั้งหมด โดยสามารถช่วยประเมินประสิทธิภาพของการใช้ Google Ads และการทำบทความสำหรับ SEO ได้
+                        รวมถึงสามารถประเมินสินค้ายอดนิยมจากคำสั่งซื้อที่มาจาก Google ได้
+                    </p>
                     <h2>วิธีการติดตั้ง</h2>
                     <p>
                         สามารถติดตั้งปลั้กอินนี้ได้โดยการดาวน์โหลดไฟล์นี้จาก Github หน้านี้ และอัพโหลดลงในหน้า /wp-admin/plugin-install.php หลังจากอัพโหลด 
