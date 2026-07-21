@@ -88,6 +88,8 @@ function woocommerce_sales_evaluation_get_google_referral_order_ids($start_date,
         WHERE p.post_type = 'shop_order'
           AND p.post_status IN ($placeholders)
           AND p.post_date BETWEEN %s AND %s
+          AND pm.meta_key != ' '
+          AND TRIM(COALESCE(pm.meta_value, '')) != ''
           AND (LOWER(pm.meta_key) LIKE %s OR LOWER(pm.meta_value) LIKE %s)";
 
     return $wpdb->get_col($wpdb->prepare($sql, array_merge($statuses, array($from, $to, $like, $like))));
@@ -161,12 +163,13 @@ function woocommerce_sales_evaluation_get_google_referral_value($order)
     $like = '%' . $wpdb->esc_like('Google') . '%';
 
     $sql = $wpdb->prepare(
-        "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND meta_value LIKE %s ORDER BY meta_id ASC LIMIT 1",
+        "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id = %d AND TRIM(COALESCE(meta_value, '')) != '' AND meta_value LIKE %s ORDER BY meta_id ASC LIMIT 1",
         $order_id,
         $like
     );
 
-    return (string) $wpdb->get_var($sql);
+    $value = $wpdb->get_var($sql);
+    return is_string($value) ? trim($value) : '';
 }
 
 function woocommerce_sales_evaluation_get_google_referral_orders($start_date, $end_date)
@@ -181,7 +184,10 @@ function woocommerce_sales_evaluation_get_google_referral_orders($start_date, $e
     foreach ($order_ids as $order_id) {
         $order = wc_get_order($order_id);
         if ($order) {
-            $orders[] = $order;
+            $referral = woocommerce_sales_evaluation_get_google_referral_value($order);
+            if ($referral !== '') {
+                $orders[] = $order;
+            }
         }
     }
 
@@ -258,7 +264,7 @@ function woocommerce_sales_evaluation_page()
     </div>
     <div class="wrap">
         <div style="display: flex;">
-            <div class="leftside">
+            <div class="leftside no-print">
                 <h1>Sale Evaluation</h1>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=google-ads" <?php if(isset($_GET['option']) && $_GET['option'] == "google-ads") { echo "class='active'"; } ?>>Google Ads</a>
             </div>
@@ -273,21 +279,25 @@ function woocommerce_sales_evaluation_page()
                     }
                 ?>
                 <h1>การขายจาก Google</h1>
-                <div style="padding: 25px 25px 25px 25px;">
+                <div style="padding: 0 25px 25px 25px;">
+                    <p><strong>ออกรายงานเมื่อวันที่:</strong> <?=date("d/m/Y")?></p>
                     <form method="get" action="">
                         <input type="hidden" name="page" value="woocommerce-sales-evaluation" />
                         <input type="hidden" name="option" value="google-ads" />
-                        <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 100px 100px; gap: 10px;">
                             <div>
-                                <label for="start_date">วันที่เริ่มต้น</label><br>
-                                <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($start_date); ?>" />
+                                <label for="start_date">วันที่เริ่มต้น: </label><br>
+                                <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($start_date); ?>" style="width: 100%;" />
                             </div>
                             <div>
-                                <label for="end_date">วันที่สิ้นสุด</label><br>
-                                <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($end_date); ?>" />
+                                <label for="end_date">วันที่สิ้นสุด: </label><br>
+                                <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($end_date); ?>" style="width: 100%;" />
                             </div>
                             <div>
-                                <button type="submit" class="button button-outline-primary">กรอง</button>
+                                <button type="submit" class="button button-outline-primary no-print" style="width: 100%; margin-top: 20px;">กรอง</button>
+                            </div>
+                            <div>
+                                <a onclick="window.print();" class="button button-outline-primary no-print" style="width: 100%; margin-top: 20px;">ออกรายงาน</a>
                             </div>
                         </div>
                     </form>
@@ -298,20 +308,20 @@ function woocommerce_sales_evaluation_page()
                         </div>
                     <?php else : ?>
                         <div class="stat_card_container">
-                            <div class="stat_card" style="background: #5E244E;">
-                                <h3>คำสั่งซื้อทั้งหมด</h3> 
+                            <div class="stat_card" style="border: 1.5px solid #5E244E; color: #5E244E;">
+                                <strong>🗃️ คำสั่งซื้อทั้งหมด</strong><br>
                                 <span><?php echo esc_html($stats['total_orders']); ?> รายการ</span>
                             </div>
-                            <div class="stat_card" style="background: #AA1C41;">
-                                <h3>คำสั่งซื้อจาก Google จำนวน</h3> 
+                            <div class="stat_card" style="border: 1.5px solid #AA1C41; color: #AA1C41;">
+                                <strong>🗂️ คำสั่งซื้อจาก Google</strong><br>
                                 <span><?php echo esc_html($stats['google_orders']); ?> รายการ (<?php echo esc_html($stats['percentage']); ?>%)</span>
                             </div>
-                            <div class="stat_card" style="background: #4274D9;">
-                                <h3>ยอดเงินจาก Google ทั้งหมด</h3> 
+                            <div class="stat_card" style="border: 1.5px solid #4274D9; color: #4274D9;">
+                                <strong>💰 ยอดจาก Google</strong><br>
                                 <span><?php echo function_exists('wc_price') ? wc_price($stats['google_total']) : number_format($stats['google_total'], 2); ?></span>
                             </div>
-                            <div class="stat_card" style="background: #293681;">
-                                <h3>ปิดการขายได้</h3> 
+                            <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
+                                <strong>✅ ปิดการขายได้</strong><br>
                                 <span>
                                     <?php echo function_exists('wc_price') ? wc_price($stats['google_completed_total']) : number_format($stats['google_completed_total'], 2); ?>
                                     (<?php echo $stats['google_total'] > 0 ? number_format(($stats['google_completed_total'] / $stats['google_total']) * 100, 2) : '0.00'; ?>%)
@@ -320,59 +330,101 @@ function woocommerce_sales_evaluation_page()
                         </div>
                         <style>
                             .stat_card_container {
-                                display: flex;
+                                display: grid;
+                                grid-template-columns: 1fr 1fr 1fr 1fr;
                                 gap: 10px;
                                 padding-top: 20px;
                             }
-
                             .stat_card {
                                 padding: 20px;
                                 border-radius: 20px;
-                                color: #fff;
+                                line-height: 30px;
+                                height: max-content;
                             }
-
-                            .stat_card h3 {
-                                font-size: 22px;
-                                font-weight: 500;
+                            .stat_card strong {
+                                font-size: 20px;
+                                font-weight: 600;
                                 line-height: 25px;
-                                margin-top: 0;
-                                color: #fff;
+                                margin-bottom: 20px;
                             }
-
                             .stat_card span {
                                 font-size: 18px;
                                 font-weight: 500;
+                            }
+                            @media screen and (max-width: 1024px) {
+                                .stat_card_container {
+                                    display: block !important;
+                                }
+                                .stat_card {
+                                    margin-bottom: 20px;   
+                                }
+                            }
+                            @media print {
+                                .no-print {
+                                    display: none !important;
+                                }
+                                table th {
+                                    width: unset !important;
+                                }
+                                h1 {
+                                    color: #000 !important;
+                                    font-size: 22px !important;
+                                    font-weight: 600 !important;
+                                }
+                                p {
+                                    border-bottom: 1px solid #555;
+                                    padding-bottom: 10px !important;
+                                }
+                                .stat_card_container {
+                                    grid-template-columns: 1fr 1fr !important;
+                                    border: 1px solid #333;
+                                    margin-top: 20px;
+                                    padding-top: 10px;
+                                }
+                                .stat_card {
+                                    border: 0 !important;
+                                }
                             }
                         </style>
                         <?php
                         $google_orders = woocommerce_sales_evaluation_get_google_referral_orders($start_date, $end_date);
                         if (!empty($google_orders)) :
                         ?>
-                        <div style="margin-top:24px;overflow-x:auto;">
+                        <div style="margin-top:24px; overflow:auto;">
                             <table class="wp-list-table widefat fixed striped" style="width:100%;border-collapse:collapse;">
                                 <thead>
                                     <tr>
-                                        <th style="padding:10px;border:1px solid #ddd;text-align:left;">Order</th>
-                                        <th style="padding:10px;border:1px solid #ddd;text-align:left;">Date</th>
-                                        <th style="padding:10px;border:1px solid #ddd;text-align:left;">Status</th>
-                                        <th style="padding:10px;border:1px solid #ddd;text-align:right;">Total</th>
-                                        <th style="padding:10px;border:1px solid #ddd;text-align:left;">Referral</th>
+                                        <th>สั่งซื้อเมื่อ</th>
+                                        <th style="width: 80px;">คำสั่งซื้อ</th>
+                                        <th style="width: 400px;">รายการสินค้า</th>
+                                        <th>สถานะ</th>
+                                        <th style="width: 80px;">ยอดทั้งหมด</th>
+                                        <th>Referral</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($google_orders as $order) : ?>
                                         <tr>
-                                            <td style="padding:10px;border:1px solid #ddd;"><a href="<?php echo esc_url(admin_url('post.php?post=' . intval($order->get_id()) . '&action=edit')); ?>" target="_blank"><?php echo esc_html($order->get_order_number()); ?></a></td>
-                                            <td style="padding:10px;border:1px solid #ddd;">
+                                            <td>
                                                 <?php echo esc_html($order->get_date_created() ? $order->get_date_created()->date_i18n('Y-m-d H:i') : 'N/A'); ?>
                                             </td>
-                                            <td style="padding:10px;border:1px solid #ddd;">
-                                                <?php echo esc_html(wc_get_order_status_name($order->get_status())); ?>
+                                            <td><a href="<?php echo esc_url(admin_url('post.php?post=' . intval($order->get_id()) . '&action=edit')); ?>" target="_blank"><?php echo esc_html($order->get_order_number()); ?></a></td>
+                                            <td>
+                                                <?php echo implode( ', ', array_map( fn( $item ) => $item->get_name(), $order->get_items() ) ) ?>
                                             </td>
-                                            <td style="padding:10px;border:1px solid #ddd;text-align:right;">
+                                            <td>
+                                                <span class="badge
+                                                <?php if($order->get_status() == "cancelled" || $order->get_status() == "failed") { echo "danger"; } ?> 
+                                                <?php if($order->get_status() == "completed") { echo "success"; } ?> 
+                                                <?php if($order->get_status() == "on-hold") { echo "pending"; } ?>
+                                                ">
+                                                <?= esc_html(wc_get_order_status_name($order->get_status())); ?>
+                                                </span>
+                                            </td>
+                                            <td>
                                                 <?php echo function_exists('wc_price') ? wc_price($order->get_total()) : number_format($order->get_total(), 2); ?>
                                             </td>
-                                            <td style="padding:10px;border:1px solid #ddd;">
+                                            <td>
                                                 <?php echo esc_html(woocommerce_sales_evaluation_get_google_referral_value($order)); ?>
                                             </td>
                                         </tr>
