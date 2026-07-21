@@ -70,6 +70,13 @@ function woocommerce_sales_evaluation_get_referral_source_config($option)
             'stats_label' => 'คำสั่งซื้อจาก LINE',
             'keywords' => array('Safari Line', 'naver.line.android'),
         ),
+        'facebook' => array(
+            'key' => 'facebook',
+            'title' => 'การขายจาก Facebook',
+            'label' => 'Facebook',
+            'stats_label' => 'คำสั่งซื้อจาก Facebook',
+            'keywords' => array('facebook'),
+        ),
     );
 
     return isset($sources[$option]) ? $sources[$option] : $sources['google'];
@@ -315,17 +322,20 @@ function woocommerce_sales_evaluation_page()
     <div class="wrap">
         <div style="display: flex;">
             <div class="leftside no-print">
-                <h1>Sale Evaluation</h1>
+                <h1>Search Engine & LLM</h1>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=google" <?php if(isset($_GET['option']) && $_GET['option'] == "google") { echo "class='active'"; } ?>>📕 Google</a>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=bing" <?php if(isset($_GET['option']) && $_GET['option'] == "bing") { echo "class='active'"; } ?>>📘 Bing</a>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=chatgpt" <?php if(isset($_GET['option']) && $_GET['option'] == "chatgpt") { echo "class='active'"; } ?>>🤖 ChatGPT</a>
+                <h1>Social Media</h1>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=line" <?php if(isset($_GET['option']) && $_GET['option'] == "line") { echo "class='active'"; } ?>>📗 LINE</a>
+                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=facebook" <?php if(isset($_GET['option']) && $_GET['option'] == "facebook") { echo "class='active'"; } ?>>📘 Facebook</a>
+                <h1>Others</h1>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation" <?php if(!isset($_GET['option'])) { echo "class='active'"; } ?>>📜 คู่มือการใช้งาน</a>
             </div>
             <div class="container">
                 <?php
                 $option = isset($_GET['option']) ? sanitize_text_field($_GET['option']) : null;
-                if (in_array($option, array('google', 'chatgpt', 'bing', 'line'), true)) {
+                if (in_array($option, array('google', 'chatgpt', 'bing', 'line', 'facebook'), true)) {
                     $source_config = woocommerce_sales_evaluation_get_referral_source_config($option);
                     $start_date = woocommerce_sales_evaluation_sanitize_date_param('start_date', date('Y-m-01'));
                     $end_date = woocommerce_sales_evaluation_sanitize_date_param('end_date', date('Y-m-t'));
