@@ -322,6 +322,8 @@ function woocommerce_sales_evaluation_page()
     <div class="wrap">
         <div style="display: flex;">
             <div class="leftside no-print">
+                <h1>Sales Evaluation</h1>
+                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation" <?php if(!isset($_GET['option'])) { echo "class='active'"; } ?>>📊 Dashboard</a>
                 <h1>Search Engine & LLM</h1>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=google" <?php if(isset($_GET['option']) && $_GET['option'] == "google") { echo "class='active'"; } ?>>📕 Google</a>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=bing" <?php if(isset($_GET['option']) && $_GET['option'] == "bing") { echo "class='active'"; } ?>>📘 Bing</a>
@@ -329,8 +331,6 @@ function woocommerce_sales_evaluation_page()
                 <h1>Social Media</h1>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=line" <?php if(isset($_GET['option']) && $_GET['option'] == "line") { echo "class='active'"; } ?>>📗 LINE</a>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=facebook" <?php if(isset($_GET['option']) && $_GET['option'] == "facebook") { echo "class='active'"; } ?>>📘 Facebook</a>
-                <h1>Others</h1>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation" <?php if(!isset($_GET['option'])) { echo "class='active'"; } ?>>📜 คู่มือการใช้งาน</a>
             </div>
             <div class="container">
                 <?php
@@ -395,64 +395,6 @@ function woocommerce_sales_evaluation_page()
                                 </span>
                             </div>
                         </div>
-                        <style>
-                            .stat_card_container {
-                                display: grid;
-                                grid-template-columns: 1fr 1fr 1fr 1fr;
-                                gap: 10px;
-                                padding-top: 20px;
-                            }
-                            .stat_card {
-                                padding: 20px;
-                                border-radius: 20px;
-                                line-height: 30px;
-                                height: max-content;
-                            }
-                            .stat_card strong {
-                                font-size: 20px;
-                                font-weight: 600;
-                                line-height: 25px;
-                                margin-bottom: 20px;
-                            }
-                            .stat_card span {
-                                font-size: 18px;
-                                font-weight: 500;
-                            }
-                            @media screen and (max-width: 1024px) {
-                                .stat_card_container {
-                                    display: block !important;
-                                }
-                                .stat_card {
-                                    margin-bottom: 20px;   
-                                }
-                            }
-                            @media print {
-                                .no-print {
-                                    display: none !important;
-                                }
-                                table th {
-                                    width: unset !important;
-                                }
-                                h1 {
-                                    color: #000 !important;
-                                    font-size: 22px !important;
-                                    font-weight: 600 !important;
-                                }
-                                p {
-                                    border-bottom: 1px solid #555;
-                                    padding-bottom: 10px !important;
-                                }
-                                .stat_card_container {
-                                    grid-template-columns: 1fr 1fr !important;
-                                    border: 1px solid #333;
-                                    margin-top: 20px;
-                                    padding-top: 10px;
-                                }
-                                .stat_card {
-                                    border: 0 !important;
-                                }
-                            }
-                        </style>
                         <?php
                         $orders = woocommerce_sales_evaluation_get_referral_orders($start_date, $end_date, $option);
                         if (!empty($orders)) :
@@ -504,8 +446,43 @@ function woocommerce_sales_evaluation_page()
                     <?php endif; ?>
                 </div>
                 <?php } else { ?>
-                <h1>คู่มือการใช้งาน</h1>
+                <h1>Dashboard</h1>
                 <div style="padding: 0 25px 25px 25px;">
+                    <?php
+                    $start_date = woocommerce_sales_evaluation_sanitize_date_param('start_date', date('Y-m-01'));
+                    $end_date = woocommerce_sales_evaluation_sanitize_date_param('end_date', date('Y-m-t'));
+                    if (function_exists('wc_get_orders')) {
+                        $facebook_stats = woocommerce_sales_evaluation_get_referral_stats($start_date, $end_date, 'facebook');
+                        $line_stats = woocommerce_sales_evaluation_get_referral_stats($start_date, $end_date, 'line');
+                        $google_stats = woocommerce_sales_evaluation_get_referral_stats($start_date, $end_date, 'google');
+                    } else {
+                        die("WooCommerce ไม่พร้อมใช้งาน");
+                    }
+                    ?>
+                    <h2>📊 ยอดขายจาก Social Media เดือนนี้</h2>
+                    <div class="stat_card_container">
+                        <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
+                            <strong>ปิดการขาย Google ได้</strong><br>
+                            <span>
+                                <?php echo function_exists('wc_price') ? wc_price($google_stats['data_completed_total']) : number_format($google_stats['data_completed_total'], 2); ?>
+                                (<?php echo $google_stats['data_total'] > 0 ? number_format(($google_stats['data_completed_total'] / $google_stats['data_total']) * 100, 2) : '0.00'; ?>%)
+                            </span>
+                        </div>
+                        <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
+                            <strong>ปิดการขาย LINE ได้</strong><br>
+                            <span>
+                                <?php echo function_exists('wc_price') ? wc_price($line_stats['data_completed_total']) : number_format($line_stats['data_completed_total'], 2); ?>
+                                (<?php echo $line_stats['data_total'] > 0 ? number_format(($line_stats['data_completed_total'] / $line_stats['data_total']) * 100, 2) : '0.00'; ?>%)
+                            </span>
+                        </div>
+                        <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
+                            <strong>ปิดการขาย Facebook ได้</strong><br>
+                            <span>
+                                <?php echo function_exists('wc_price') ? wc_price($facebook_stats['data_completed_total']) : number_format($facebook_stats['data_completed_total'], 2); ?>
+                                (<?php echo $facebook_stats['data_total'] > 0 ? number_format(($facebook_stats['data_completed_total'] / $facebook_stats['data_total']) * 100, 2) : '0.00'; ?>%)
+                            </span>
+                        </div>
+                    </div>
                     <h2>ปลั้กอินนี้คืออะไร ?</h2>
                     <p>
                         ปลั้กอิน Sales Evaluation ถูกออกแบบขึ้นมาเพื่อประเมินสัดส่วนคำสั่งซื้อที่มาจาก Google ออกมาจากคำสั่งซื้อทั้งหมด โดยสามารถช่วยประเมินประสิทธิภาพของการใช้ Google Ads และการทำบทความสำหรับ SEO ได้
@@ -519,6 +496,64 @@ function woocommerce_sales_evaluation_page()
                 </div>
                 <?php } ?>
             </div>
+            <style>
+                .stat_card_container {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr 1fr 1fr;
+                    gap: 10px;
+                    padding-top: 20px;
+                }
+                .stat_card {
+                    padding: 20px;
+                    border-radius: 20px;
+                    line-height: 30px;
+                    height: max-content;
+                }
+                .stat_card strong {
+                    font-size: 20px;
+                    font-weight: 600;
+                    line-height: 25px;
+                    margin-bottom: 20px;
+                }
+                .stat_card span {
+                    font-size: 18px;
+                    font-weight: 500;
+                }
+                @media screen and (max-width: 1024px) {
+                    .stat_card_container {
+                        display: block !important;
+                    }
+                    .stat_card {
+                        margin-bottom: 20px;   
+                    }
+                }
+                @media print {
+                    .no-print {
+                        display: none !important;
+                    }
+                    table th {
+                        width: unset !important;
+                    }
+                    h1 {
+                        color: #000 !important;
+                        font-size: 22px !important;
+                        font-weight: 600 !important;
+                    }
+                    p {
+                        border-bottom: 1px solid #555;
+                        padding-bottom: 10px !important;
+                    }
+                    .stat_card_container {
+                        grid-template-columns: 1fr 1fr !important;
+                        border: 1px solid #333;
+                        margin-top: 20px;
+                        padding-top: 10px;
+                    }
+                    .stat_card {
+                        border: 0 !important;
+                    }
+                }
+            </style>
         </div>
     </div>
 <?php
