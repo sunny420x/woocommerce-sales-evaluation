@@ -387,7 +387,7 @@ function woocommerce_sales_evaluation_page()
                                 <strong>💰 ยอดจาก <?php echo esc_html($stats['source_label']); ?></strong><br>
                                 <span><?php echo function_exists('wc_price') ? wc_price($stats['data_total']) : number_format($stats['data_total'], 2); ?></span>
                             </div>
-                            <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
+                            <div class="stat_card" style="background: #293681; color: #fff;">
                                 <strong>✅ ปิดการขายได้</strong><br>
                                 <span>
                                     <?php echo function_exists('wc_price') ? wc_price($stats['data_completed_total']) : number_format($stats['data_completed_total'], 2); ?>
@@ -461,21 +461,21 @@ function woocommerce_sales_evaluation_page()
                     ?>
                     <h2>📊 ยอดขายจาก Social Media เดือนนี้</h2>
                     <div class="stat_card_container">
-                        <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
+                        <div class="stat_card" style="background: #293681; color: #fff;">
                             <strong>ปิดการขาย Google ได้</strong><br>
                             <span>
                                 <?php echo function_exists('wc_price') ? wc_price($google_stats['data_completed_total']) : number_format($google_stats['data_completed_total'], 2); ?>
                                 (<?php echo $google_stats['data_total'] > 0 ? number_format(($google_stats['data_completed_total'] / $google_stats['data_total']) * 100, 2) : '0.00'; ?>%)
                             </span>
                         </div>
-                        <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
+                        <div class="stat_card" style="background: #293681; color: #fff;">
                             <strong>ปิดการขาย LINE ได้</strong><br>
                             <span>
                                 <?php echo function_exists('wc_price') ? wc_price($line_stats['data_completed_total']) : number_format($line_stats['data_completed_total'], 2); ?>
                                 (<?php echo $line_stats['data_total'] > 0 ? number_format(($line_stats['data_completed_total'] / $line_stats['data_total']) * 100, 2) : '0.00'; ?>%)
                             </span>
                         </div>
-                        <div class="stat_card" style="border: 1.5px solid #293681; color: #293681;">
+                        <div class="stat_card" style="background: #293681; color: #fff;">
                             <strong>ปิดการขาย Facebook ได้</strong><br>
                             <span>
                                 <?php echo function_exists('wc_price') ? wc_price($facebook_stats['data_completed_total']) : number_format($facebook_stats['data_completed_total'], 2); ?>
@@ -505,7 +505,6 @@ function woocommerce_sales_evaluation_page()
                 }
                 .stat_card {
                     padding: 20px;
-                    border-radius: 20px;
                     line-height: 30px;
                     height: max-content;
                 }
