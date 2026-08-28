@@ -7,6 +7,7 @@
  * Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
  * GitHub Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
  * Primary Branch: master
+ * Version: 1.0.0
  */
 
 if (!defined('ABSPATH'))
