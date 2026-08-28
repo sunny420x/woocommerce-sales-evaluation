@@ -5,6 +5,8 @@
  * Author: Jirakit Pawnsakunrungrot
  * Author URI: https://www.linkedin.com/in/sunny-jirakit
  * Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
+ * GitHub Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
+ * Primary Branch: master
  */
 
 if (!defined('ABSPATH'))
