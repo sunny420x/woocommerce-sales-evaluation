@@ -7,7 +7,7 @@
  * Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
  * GitHub Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
  * Primary Branch: master
- * Version: 1.1.0
+ * Version: 1.1.1
  */
 
 if (!defined('ABSPATH'))
@@ -659,6 +659,8 @@ function woocommerce_sales_evaluation_page()
                     }
                     .stat_card {
                         border: 0 !important;
+                        -webkit-print-color-adjust: exact;
+                        print-color-adjust: exact;
                     }
                 }
             </style>
