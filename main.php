@@ -556,7 +556,7 @@ function woocommerce_sales_evaluation_page()
                         die("WooCommerce ไม่พร้อมใช้งาน");
                     }
                     ?>
-                    <h2>📊 ยอดขายจาก Social Media เดือนนี้</h2>
+                    <h2>ยอดขายจาก Social Media เดือนนี้</h2>
                     <div class="stat_card_container">
                         <div class="stat_card" style="background: #293681; color: #fff;">
                             <strong>ปิดการขาย Google ได้</strong><br>
@@ -580,7 +580,7 @@ function woocommerce_sales_evaluation_page()
                             </span>
                         </div>
                     </div>
-                    <h2>🧾 รายการคำสั่งซื้อ</h2>
+                    <h2>รายการคำสั่งซื้อ</h2>
                     <p><strong>ออกรายงานเมื่อวันที่:</strong> <?=date("d/m/Y")?> | <strong>ช่วงวันที่:</strong> <?php echo esc_html($start_date . ' ถึง ' . $end_date); ?></p>
                     <form method="get" action="" class="no-print">
                         <input type="hidden" name="page" value="woocommerce-sales-evaluation" />
@@ -607,9 +607,17 @@ function woocommerce_sales_evaluation_page()
                     <?php
                     $all_orders =woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
                     $all_orders_total = 0.0;
+                    $gross_sales = 0.0;
+                    $total_refunded = 0.0;
                     foreach ($all_orders as $all_order) {
                         $all_orders_total += (float) $all_order->get_total();
+                        // Gross/Net นับเฉพาะสถานะที่ถือเป็นยอดขาย (wc-completed, wc-processing, wc-on-hold)
+                        if (in_array($all_order->get_status(), array('completed', 'processing', 'on-hold'), true)) {
+                            $gross_sales += (float) $all_order->get_total();
+                            $total_refunded += (float) $all_order->get_total_refunded();
+                        }
                     }
+                    $net_sales = $gross_sales - $total_refunded;
                     ?>
                     <div style="margin-top:24px; overflow:auto;">
                         <table class="wp-list-table widefat fixed striped" style="width:100%;border-collapse:collapse;">
@@ -643,6 +651,14 @@ function woocommerce_sales_evaluation_page()
                                 <tr>
                                     <th colspan="5" style="text-align:right;">รวม <?php echo esc_html(count($all_orders)); ?> รายการ</th>
                                     <th><?php echo wc_price($all_orders_total); ?></th>
+                                </tr>
+                                <tr>
+                                    <th colspan="5" style="text-align:right;">Gross Sale (completed + processing + on-hold)</th>
+                                    <th><?php echo wc_price($gross_sales); ?></th>
+                                </tr>
+                                <tr>
+                                    <th colspan="5" style="text-align:right;">Net Sale (Gross - คืนเงิน <?php echo wp_strip_all_tags(wc_price($total_refunded)); ?>)</th>
+                                    <th><?php echo wc_price($net_sales); ?></th>
                                 </tr>
                             </tfoot>
                             <?php endif; ?>
