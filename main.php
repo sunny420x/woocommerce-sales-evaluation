@@ -325,7 +325,9 @@ function woocommerce_sales_evaluation_export_csv()
 
     nocache_headers();
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="sales-evaluation-' . $start_date . '_' . $end_date . '.csv"');
+    $domain = wp_parse_url(home_url(), PHP_URL_HOST);
+    $filename = sanitize_file_name($domain . '_' . $start_date . '_' . $end_date . '_sales-evaluation.csv');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
 
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF"); // BOM ให้ Excel อ่านภาษาไทยได้
