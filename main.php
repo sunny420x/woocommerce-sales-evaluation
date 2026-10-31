@@ -254,6 +254,42 @@ function woocommerce_sales_evaluation_get_referral_orders($start_date, $end_date
     return $orders;
 }
 
+function woocommerce_sales_evaluation_get_all_orders($start_date, $end_date)
+{
+    if (!function_exists('wc_get_orders')) {
+        return array();
+    }
+
+    return wc_get_orders(array(
+        'limit' => -1,
+        'type' => 'shop_order',
+        'status' => array('completed', 'processing', 'on-hold', 'pending', 'failed', 'cancelled', 'refunded'),
+        'date_created' => $start_date . ' 00:00:00...' . $end_date . ' 23:59:59',
+        'orderby' => 'date',
+        'order' => 'DESC',
+    ));
+}
+
+function woocommerce_sales_evaluation_get_customer_name($order)
+{
+    $name = trim($order->get_formatted_billing_full_name());
+    if ($name === '') {
+        $name = trim($order->get_formatted_shipping_full_name());
+    }
+
+    return $name !== '' ? $name : 'ลูกค้าทั่วไป (Guest)';
+}
+
+function woocommerce_sales_evaluation_get_items_text($order)
+{
+    $items = array();
+    foreach ($order->get_items() as $item) {
+        $items[] = $item->get_name() . ' × ' . $item->get_quantity();
+    }
+
+    return implode(', ', $items);
+}
+
 function woocommerce_sales_evaluation_page()
 {
     ?>
@@ -327,6 +363,7 @@ function woocommerce_sales_evaluation_page()
             <div class="leftside no-print">
                 <h1>Sales Evaluation</h1>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation" <?php if(!isset($_GET['option'])) { echo "class='active'"; } ?>>📊 Dashboard</a>
+                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=about" <?php if(isset($_GET['option']) && $_GET['option'] == "about") { echo "class='active'"; } ?>>ℹ️ เกี่ยวกับปลั้กอิน</a>
                 <h1>Search Engine & LLM</h1>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=google" <?php if(isset($_GET['option']) && $_GET['option'] == "google") { echo "class='active'"; } ?>>📕 Google</a>
                 <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=bing" <?php if(isset($_GET['option']) && $_GET['option'] == "bing") { echo "class='active'"; } ?>>📘 Bing</a>
@@ -448,6 +485,20 @@ function woocommerce_sales_evaluation_page()
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
+                <?php } elseif ($option === 'about') { ?>
+                <h1>เกี่ยวกับปลั้กอิน</h1>
+                <div style="padding: 0 25px 25px 25px;">
+                    <h2>ปลั้กอินนี้คืออะไร ?</h2>
+                    <p>
+                        ปลั้กอิน Sales Evaluation ถูกออกแบบขึ้นมาเพื่อประเมินสัดส่วนคำสั่งซื้อที่มาจาก Google ออกมาจากคำสั่งซื้อทั้งหมด โดยสามารถช่วยประเมินประสิทธิภาพของการใช้ Google Ads และการทำบทความสำหรับ SEO ได้
+                        รวมถึงสามารถประเมินสินค้ายอดนิยมจากคำสั่งซื้อที่มาจาก Google ได้
+                    </p>
+                    <h2>วิธีการติดตั้ง</h2>
+                    <p>
+                        สามารถติดตั้งปลั้กอินนี้ได้โดยการดาวน์โหลดไฟล์นี้จาก Github หน้านี้ และอัพโหลดลงในหน้า /wp-admin/plugin-install.php หลังจากอัพโหลด
+                        และเปิดใช้งาน (Activate) ระบบจะทำการสร้างตารางและคอลัมน์ใหม่จากตารางเดิมโดยอัตโนมัติ
+                    </p>
+                </div>
                 <?php } else { ?>
                 <h1>Dashboard</h1>
                 <div style="padding: 0 25px 25px 25px;">
@@ -486,16 +537,71 @@ function woocommerce_sales_evaluation_page()
                             </span>
                         </div>
                     </div>
-                    <h2>ปลั้กอินนี้คืออะไร ?</h2>
-                    <p>
-                        ปลั้กอิน Sales Evaluation ถูกออกแบบขึ้นมาเพื่อประเมินสัดส่วนคำสั่งซื้อที่มาจาก Google ออกมาจากคำสั่งซื้อทั้งหมด โดยสามารถช่วยประเมินประสิทธิภาพของการใช้ Google Ads และการทำบทความสำหรับ SEO ได้
-                        รวมถึงสามารถประเมินสินค้ายอดนิยมจากคำสั่งซื้อที่มาจาก Google ได้
-                    </p>
-                    <h2>วิธีการติดตั้ง</h2>
-                    <p>
-                        สามารถติดตั้งปลั้กอินนี้ได้โดยการดาวน์โหลดไฟล์นี้จาก Github หน้านี้ และอัพโหลดลงในหน้า /wp-admin/plugin-install.php หลังจากอัพโหลด 
-                        และเปิดใช้งาน (Activate) ระบบจะทำการสร้างตารางและคอลัมน์ใหม่จากตารางเดิมโดยอัตโนมัติ
-                    </p>
+                    <h2>🧾 รายการคำสั่งซื้อ</h2>
+                    <p><strong>ออกรายงานเมื่อวันที่:</strong> <?=date("d/m/Y")?> | <strong>ช่วงวันที่:</strong> <?php echo esc_html($start_date . ' ถึง ' . $end_date); ?></p>
+                    <form method="get" action="" class="no-print">
+                        <input type="hidden" name="page" value="woocommerce-sales-evaluation" />
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 100px 100px; gap: 10px;">
+                            <div>
+                                <label for="start_date">วันที่เริ่มต้น: </label><br>
+                                <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($start_date); ?>" style="width: 100%;" />
+                            </div>
+                            <div>
+                                <label for="end_date">วันที่สิ้นสุด: </label><br>
+                                <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($end_date); ?>" style="width: 100%;" />
+                            </div>
+                            <div>
+                                <button type="submit" class="button button-outline-primary" style="width: 100%; margin-top: 20px;">กรอง</button>
+                            </div>
+                            <div>
+                                <a onclick="window.print();" class="button button-outline-primary" style="width: 100%; margin-top: 20px;">ออกรายงาน</a>
+                            </div>
+                        </div>
+                    </form>
+                    <?php
+                    $all_orders = woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
+                    $all_orders_total = 0.0;
+                    foreach ($all_orders as $all_order) {
+                        $all_orders_total += (float) $all_order->get_total();
+                    }
+                    ?>
+                    <div style="margin-top:24px; overflow:auto;">
+                        <table class="wp-list-table widefat fixed striped" style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr>
+                                    <th>สั่งซื้อเมื่อ</th>
+                                    <th style="width: 80px;">คำสั่งซื้อ</th>
+                                    <th>ชื่อลูกค้า</th>
+                                    <th style="width: 300px;">รายการสินค้า</th>
+                                    <th>สถานะ</th>
+                                    <th style="width: 100px;">ยอดทั้งหมด</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($all_orders)) : ?>
+                                    <tr><td colspan="6">ไม่พบคำสั่งซื้อในช่วงวันที่ที่เลือก</td></tr>
+                                <?php endif; ?>
+                                <?php foreach ($all_orders as $all_order) : ?>
+                                    <tr>
+                                        <td><?php echo esc_html($all_order->get_date_created() ? $all_order->get_date_created()->date_i18n('Y-m-d H:i') : 'N/A'); ?></td>
+                                        <td><a href="<?php echo esc_url($all_order->get_edit_order_url()); ?>" target="_blank"><?php echo esc_html($all_order->get_order_number()); ?></a></td>
+                                        <td><?php echo esc_html(woocommerce_sales_evaluation_get_customer_name($all_order)); ?></td>
+                                        <td><?php echo esc_html(woocommerce_sales_evaluation_get_items_text($all_order)); ?></td>
+                                        <td><?php echo esc_html(wc_get_order_status_name($all_order->get_status())); ?></td>
+                                        <td><?php echo wc_price($all_order->get_total()); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                            <?php if (!empty($all_orders)) : ?>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="5" style="text-align:right;">รวม <?php echo esc_html(count($all_orders)); ?> รายการ</th>
+                                    <th><?php echo wc_price($all_orders_total); ?></th>
+                                </tr>
+                            </tfoot>
+                            <?php endif; ?>
+                        </table>
+                    </div>
                 </div>
                 <?php } ?>
             </div>
