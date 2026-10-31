@@ -7,7 +7,7 @@
  * Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
  * GitHub Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
  * Primary Branch: master
- * Version: 1.1.1
+ * Version: 1.2.0
  */
 
 if (!defined('ABSPATH'))
@@ -290,6 +290,49 @@ function woocommerce_sales_evaluation_get_items_text($order)
     return implode(', ', $items);
 }
 
+add_action('admin_init', 'woocommerce_sales_evaluation_export_csv');
+
+function woocommerce_sales_evaluation_export_csv()
+{
+    if (!isset($_GET['page'], $_GET['wse_export']) || $_GET['page'] !== 'woocommerce-sales-evaluation' || $_GET['wse_export'] !== 'csv') {
+        return;
+    }
+
+    if (!current_user_can('manage_options') || !wp_verify_nonce(isset($_GET['_wpnonce']) ? $_GET['_wpnonce'] : '', 'wse_export_csv')) {
+        wp_die('ไม่มีสิทธิ์ใช้งาน');
+    }
+
+    $start_date = woocommerce_sales_evaluation_sanitize_date_param('start_date', date('Y-m-01'));
+    $end_date = woocommerce_sales_evaluation_sanitize_date_param('end_date', date('Y-m-t'));
+    $orders = woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
+
+    nocache_headers();
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="sales-evaluation-' . $start_date . '_' . $end_date . '.csv"');
+
+    $out = fopen('php://output', 'w');
+    fwrite($out, "\xEF\xBB\xBF"); // BOM ให้ Excel อ่านภาษาไทยได้
+    fputcsv($out, array('สั่งซื้อเมื่อ', 'คำสั่งซื้อ', 'ชื่อลูกค้า', 'รายการสินค้า', 'สถานะ', 'ยอดทั้งหมด'));
+
+    foreach ($orders as $order) {
+        // ป้องกัน CSV/formula injection จากชื่อลูกค้าและชื่อสินค้า
+        $safe = function ($text) {
+            return preg_match('/^[=+\-@\t\r]/', $text) ? "'" . $text : $text;
+        };
+        fputcsv($out, array(
+            $order->get_date_created() ? $order->get_date_created()->date_i18n('Y-m-d H:i') : '',
+            $order->get_order_number(),
+            $safe(woocommerce_sales_evaluation_get_customer_name($order)),
+            $safe(woocommerce_sales_evaluation_get_items_text($order)),
+            wc_get_order_status_name($order->get_status()),
+            $order->get_total(),
+        ));
+    }
+
+    fclose($out);
+    exit;
+}
+
 function woocommerce_sales_evaluation_page()
 {
     ?>
@@ -541,7 +584,7 @@ function woocommerce_sales_evaluation_page()
                     <p><strong>ออกรายงานเมื่อวันที่:</strong> <?=date("d/m/Y")?> | <strong>ช่วงวันที่:</strong> <?php echo esc_html($start_date . ' ถึง ' . $end_date); ?></p>
                     <form method="get" action="" class="no-print">
                         <input type="hidden" name="page" value="woocommerce-sales-evaluation" />
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 100px 100px; gap: 10px;">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 100px 100px 100px; gap: 10px;">
                             <div>
                                 <label for="start_date">วันที่เริ่มต้น: </label><br>
                                 <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($start_date); ?>" style="width: 100%;" />
@@ -556,10 +599,13 @@ function woocommerce_sales_evaluation_page()
                             <div>
                                 <a onclick="window.print();" class="button button-outline-primary" style="width: 100%; margin-top: 20px;">ออกรายงาน</a>
                             </div>
+                            <div>
+                                <a href="<?php echo esc_url(wp_nonce_url(add_query_arg(array('page' => 'woocommerce-sales-evaluation', 'wse_export' => 'csv', 'start_date' => $start_date, 'end_date' => $end_date), admin_url('admin.php')), 'wse_export_csv')); ?>" class="button button-outline-primary" style="width: 100%; margin-top: 20px; text-align: center;">Export CSV</a>
+                            </div>
                         </div>
                     </form>
                     <?php
-                    $all_orders = woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
+                    $all_orders =woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
                     $all_orders_total = 0.0;
                     foreach ($all_orders as $all_order) {
                         $all_orders_total += (float) $all_order->get_total();
