@@ -290,6 +290,23 @@ function woocommerce_sales_evaluation_get_items_text($order)
     return implode(', ', $items);
 }
 
+function woocommerce_sales_evaluation_get_sales_summary($orders)
+{
+    $summary = array('total' => 0.0, 'gross' => 0.0, 'refunded' => 0.0, 'net' => 0.0);
+
+    foreach ($orders as $order) {
+        $summary['total'] += (float) $order->get_total();
+        // Gross/Net นับเฉพาะสถานะที่ถือเป็นยอดขาย (wc-completed, wc-processing, wc-on-hold)
+        if (in_array($order->get_status(), array('completed', 'processing', 'on-hold'), true)) {
+            $summary['gross'] += (float) $order->get_total();
+            $summary['refunded'] += (float) $order->get_total_refunded();
+        }
+    }
+    $summary['net'] = $summary['gross'] - $summary['refunded'];
+
+    return $summary;
+}
+
 add_action('admin_init', 'woocommerce_sales_evaluation_export_csv');
 
 function woocommerce_sales_evaluation_export_csv()
@@ -328,6 +345,11 @@ function woocommerce_sales_evaluation_export_csv()
             $order->get_total(),
         ));
     }
+
+    $summary = woocommerce_sales_evaluation_get_sales_summary($orders);
+    fputcsv($out, array('', '', '', '', 'รวม ' . count($orders) . ' รายการ', $summary['total']));
+    fputcsv($out, array('', '', '', '', 'Gross Sale (completed + processing + on-hold)', $summary['gross']));
+    fputcsv($out, array('', '', '', '', 'Net Sale (Gross - คืนเงิน ' . $summary['refunded'] . ')', $summary['net']));
 
     fclose($out);
     exit;
@@ -606,18 +628,11 @@ function woocommerce_sales_evaluation_page()
                     </form>
                     <?php
                     $all_orders =woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
-                    $all_orders_total = 0.0;
-                    $gross_sales = 0.0;
-                    $total_refunded = 0.0;
-                    foreach ($all_orders as $all_order) {
-                        $all_orders_total += (float) $all_order->get_total();
-                        // Gross/Net นับเฉพาะสถานะที่ถือเป็นยอดขาย (wc-completed, wc-processing, wc-on-hold)
-                        if (in_array($all_order->get_status(), array('completed', 'processing', 'on-hold'), true)) {
-                            $gross_sales += (float) $all_order->get_total();
-                            $total_refunded += (float) $all_order->get_total_refunded();
-                        }
-                    }
-                    $net_sales = $gross_sales - $total_refunded;
+                    $summary = woocommerce_sales_evaluation_get_sales_summary($all_orders);
+                    $all_orders_total = $summary['total'];
+                    $gross_sales = $summary['gross'];
+                    $total_refunded = $summary['refunded'];
+                    $net_sales = $summary['net'];
                     ?>
                     <div style="margin-top:24px; overflow:auto;">
                         <table class="wp-list-table widefat fixed striped" style="width:100%;border-collapse:collapse;">
