@@ -7,7 +7,7 @@
  * Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
  * GitHub Plugin URI: https://github.com/sunny420x/woocommerce-sales-evaluation
  * Primary Branch: master
- * Version: 1.2.0
+ * Version: 1.3.0
  */
 
 if (!defined('ABSPATH'))
@@ -25,6 +25,24 @@ function woocommerce_sales_evaluation_menu()
         'woocommerce_sales_evaluation_page', // ฟังก์ชันที่ใช้พ่น HTML หน้า Setting
         'dashicons-performance', // ไอคอน
         '80' // ตำแหน่งเมนู
+    );
+
+    add_submenu_page(
+        'woocommerce-sales-evaluation',
+        'Dashboard',
+        'Dashboard',
+        'manage_options',
+        'woocommerce-sales-evaluation',
+        'woocommerce_sales_evaluation_page'
+    );
+
+    add_submenu_page(
+        'woocommerce-sales-evaluation',
+        'รายงานยอด',
+        'รายงานยอด',
+        'manage_options',
+        'woocommerce-sales-evaluation-report',
+        'woocommerce_sales_evaluation_page'
     );
 }
 
@@ -311,7 +329,8 @@ add_action('admin_init', 'woocommerce_sales_evaluation_export_csv');
 
 function woocommerce_sales_evaluation_export_csv()
 {
-    if (!isset($_GET['page'], $_GET['wse_export']) || $_GET['page'] !== 'woocommerce-sales-evaluation' || $_GET['wse_export'] !== 'csv') {
+    $valid_pages = array('woocommerce-sales-evaluation', 'woocommerce-sales-evaluation-report');
+    if (!isset($_GET['page'], $_GET['wse_export']) || !in_array($_GET['page'], $valid_pages, true) || $_GET['wse_export'] !== 'csv') {
         return;
     }
 
@@ -429,19 +448,24 @@ function woocommerce_sales_evaluation_page()
         <div style="display: flex;">
             <div class="leftside no-print">
                 <h1>Sales Evaluation</h1>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation" <?php if(!isset($_GET['option'])) { echo "class='active'"; } ?>>📊 Dashboard</a>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=about" <?php if(isset($_GET['option']) && $_GET['option'] == "about") { echo "class='active'"; } ?>>ℹ️ เกี่ยวกับปลั้กอิน</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation')); ?>" <?php if((!isset($_GET['option']) || $_GET['option'] === '') && (!isset($_GET['page']) || $_GET['page'] === 'woocommerce-sales-evaluation')) { echo "class='active'"; } ?>>📊 Dashboard</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation&option=report')); ?>" <?php if((isset($_GET['option']) && $_GET['option'] === 'report') || (isset($_GET['page']) && $_GET['page'] === 'woocommerce-sales-evaluation-report')) { echo "class='active'"; } ?>>📈 รายงานยอด</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation&option=about')); ?>" <?php if(isset($_GET['option']) && $_GET['option'] == "about") { echo "class='active'"; } ?>>ℹ️ เกี่ยวกับปลั้กอิน</a>
                 <h1>Search Engine & LLM</h1>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=google" <?php if(isset($_GET['option']) && $_GET['option'] == "google") { echo "class='active'"; } ?>>📕 Google</a>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=bing" <?php if(isset($_GET['option']) && $_GET['option'] == "bing") { echo "class='active'"; } ?>>📘 Bing</a>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=chatgpt" <?php if(isset($_GET['option']) && $_GET['option'] == "chatgpt") { echo "class='active'"; } ?>>🤖 ChatGPT</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation&option=google')); ?>" <?php if(isset($_GET['option']) && $_GET['option'] == "google") { echo "class='active'"; } ?>>📕 Google</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation&option=bing')); ?>" <?php if(isset($_GET['option']) && $_GET['option'] == "bing") { echo "class='active'"; } ?>>📘 Bing</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation&option=chatgpt')); ?>" <?php if(isset($_GET['option']) && $_GET['option'] == "chatgpt") { echo "class='active'"; } ?>>🤖 ChatGPT</a>
                 <h1>Social Media</h1>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=line" <?php if(isset($_GET['option']) && $_GET['option'] == "line") { echo "class='active'"; } ?>>📗 LINE</a>
-                <a href="/wp-admin/admin.php?page=woocommerce-sales-evaluation&option=facebook" <?php if(isset($_GET['option']) && $_GET['option'] == "facebook") { echo "class='active'"; } ?>>📘 Facebook</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation&option=line')); ?>" <?php if(isset($_GET['option']) && $_GET['option'] == "line") { echo "class='active'"; } ?>>📗 LINE</a>
+                <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation&option=facebook')); ?>" <?php if(isset($_GET['option']) && $_GET['option'] == "facebook") { echo "class='active'"; } ?>>📘 Facebook</a>
             </div>
             <div class="container">
                 <?php
+                $current_page = isset($_GET['page']) ? sanitize_text_field($_GET['page']) : '';
                 $option = isset($_GET['option']) ? sanitize_text_field($_GET['option']) : null;
+                if ($current_page === 'woocommerce-sales-evaluation-report') {
+                    $option = 'report';
+                }
                 if (in_array($option, array('google', 'chatgpt', 'bing', 'line', 'facebook'), true)) {
                     $source_config = woocommerce_sales_evaluation_get_referral_source_config($option);
                     $start_date = woocommerce_sales_evaluation_sanitize_date_param('start_date', date('Y-m-01'));
@@ -552,6 +576,122 @@ function woocommerce_sales_evaluation_page()
                         <?php endif; ?>
                     <?php endif; ?>
                 </div>
+                <?php } elseif ($option === 'report') {
+                    $start_date = woocommerce_sales_evaluation_sanitize_date_param('start_date', date('Y-m-01'));
+                    $end_date = woocommerce_sales_evaluation_sanitize_date_param('end_date', date('Y-m-t'));
+                    $all_orders = woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
+                    $summary = woocommerce_sales_evaluation_get_sales_summary($all_orders);
+                    $all_orders_total = $summary['total'];
+                    $gross_sales = $summary['gross'];
+                    $total_refunded = $summary['refunded'];
+                    $net_sales = $summary['net'];
+
+                    $export_page = ($current_page === 'woocommerce-sales-evaluation-report') ? 'woocommerce-sales-evaluation-report' : 'woocommerce-sales-evaluation';
+                    $export_args = array(
+                        'page' => $export_page,
+                        'wse_export' => 'csv',
+                        'start_date' => $start_date,
+                        'end_date' => $end_date,
+                    );
+                    if ($export_page === 'woocommerce-sales-evaluation') {
+                        $export_args['option'] = 'report';
+                    }
+                    $export_url = wp_nonce_url(add_query_arg($export_args, admin_url('admin.php')), 'wse_export_csv');
+                ?>
+                <h1>รายงานยอด</h1>
+                <div style="padding: 0 25px 25px 25px;">
+                    <p><strong>ออกรายงานเมื่อวันที่:</strong> <?=date("d/m/Y")?> | <strong>ช่วงวันที่:</strong> <?php echo esc_html($start_date . ' ถึง ' . $end_date); ?></p>
+                    <form method="get" action="" class="no-print">
+                        <input type="hidden" name="page" value="<?php echo esc_attr($export_page); ?>" />
+                        <?php if ($export_page === 'woocommerce-sales-evaluation') : ?>
+                            <input type="hidden" name="option" value="report" />
+                        <?php endif; ?>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 100px 100px 100px; gap: 10px;">
+                            <div>
+                                <label for="start_date">วันที่เริ่มต้น: </label><br>
+                                <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($start_date); ?>" style="width: 100%;" />
+                            </div>
+                            <div>
+                                <label for="end_date">วันที่สิ้นสุด: </label><br>
+                                <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($end_date); ?>" style="width: 100%;" />
+                            </div>
+                            <div>
+                                <button type="submit" class="button button-outline-primary" style="width: 100%; margin-top: 20px;">กรอง</button>
+                            </div>
+                            <div>
+                                <a onclick="window.print();" class="button button-outline-primary" style="width: 100%; margin-top: 20px;">ออกรายงาน</a>
+                            </div>
+                            <div>
+                                <a href="<?php echo esc_url($export_url); ?>" class="button button-outline-primary" style="width: 100%; margin-top: 20px; text-align: center;">Export CSV</a>
+                            </div>
+                        </div>
+                    </form>
+
+                    <div class="stat_card_container">
+                        <div class="stat_card" style="border: 1.5px solid #5E244E; color: #5E244E;">
+                            <strong>🗃️ คำสั่งซื้อทั้งหมด</strong><br>
+                            <span><?php echo esc_html(count($all_orders)); ?> รายการ</span>
+                        </div>
+                        <div class="stat_card" style="border: 1.5px solid #AA1C41; color: #AA1C41;">
+                            <strong>💰 ยอดทั้งหมด</strong><br>
+                            <span><?php echo function_exists('wc_price') ? wc_price($all_orders_total) : number_format($all_orders_total, 2); ?></span>
+                        </div>
+                        <div class="stat_card" style="border: 1.5px solid #4274D9; color: #4274D9;">
+                            <strong>📈 Gross Sale</strong><br>
+                            <span><?php echo function_exists('wc_price') ? wc_price($gross_sales) : number_format($gross_sales, 2); ?></span>
+                        </div>
+                        <div class="stat_card" style="background: #293681; color: #fff;">
+                            <strong>💳 Net Sale</strong><br>
+                            <span><?php echo function_exists('wc_price') ? wc_price($net_sales) : number_format($net_sales, 2); ?></span>
+                        </div>
+                    </div>
+
+                    <div style="margin-top:24px; overflow:auto;">
+                        <table class="wp-list-table widefat fixed striped" style="width:100%;border-collapse:collapse;">
+                            <thead>
+                                <tr>
+                                    <th>สั่งซื้อเมื่อ</th>
+                                    <th style="width: 80px;">คำสั่งซื้อ</th>
+                                    <th>ชื่อลูกค้า</th>
+                                    <th style="width: 300px;">รายการสินค้า</th>
+                                    <th>สถานะ</th>
+                                    <th style="width: 100px;">ยอดทั้งหมด</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($all_orders)) : ?>
+                                    <tr><td colspan="6">ไม่พบคำสั่งซื้อในช่วงวันที่ที่เลือก</td></tr>
+                                <?php endif; ?>
+                                <?php foreach ($all_orders as $all_order) : ?>
+                                    <tr>
+                                        <td><?php echo esc_html($all_order->get_date_created() ? $all_order->get_date_created()->date_i18n('Y-m-d H:i') : 'N/A'); ?></td>
+                                        <td><a href="<?php echo esc_url($all_order->get_edit_order_url()); ?>" target="_blank"><?php echo esc_html($all_order->get_order_number()); ?></a></td>
+                                        <td><?php echo esc_html(woocommerce_sales_evaluation_get_customer_name($all_order)); ?></td>
+                                        <td><?php echo esc_html(woocommerce_sales_evaluation_get_items_text($all_order)); ?></td>
+                                        <td><?php echo esc_html(wc_get_order_status_name($all_order->get_status())); ?></td>
+                                        <td><?php echo function_exists('wc_price') ? wc_price($all_order->get_total()) : number_format($all_order->get_total(), 2); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                            <?php if (!empty($all_orders)) : ?>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="5" style="text-align:right;">รวม <?php echo esc_html(count($all_orders)); ?> รายการ</th>
+                                    <th><?php echo function_exists('wc_price') ? wc_price($all_orders_total) : number_format($all_orders_total, 2); ?></th>
+                                </tr>
+                                <tr>
+                                    <th colspan="5" style="text-align:right;">Gross Sale (completed + processing + on-hold)</th>
+                                    <th><?php echo function_exists('wc_price') ? wc_price($gross_sales) : number_format($gross_sales, 2); ?></th>
+                                </tr>
+                                <tr>
+                                    <th colspan="5" style="text-align:right;">Net Sale (Gross - คืนเงิน <?php echo function_exists('wc_price') ? wp_strip_all_tags(wc_price($total_refunded)) : number_format($total_refunded, 2); ?>)</th>
+                                    <th><?php echo function_exists('wc_price') ? wc_price($net_sales) : number_format($net_sales, 2); ?></th>
+                                </tr>
+                            </tfoot>
+                            <?php endif; ?>
+                        </table>
+                    </div>
+                </div>
                 <?php } elseif ($option === 'about') { ?>
                 <h1>เกี่ยวกับปลั้กอิน</h1>
                 <div style="padding: 0 25px 25px 25px;">
@@ -570,12 +710,14 @@ function woocommerce_sales_evaluation_page()
                 <h1>Dashboard</h1>
                 <div style="padding: 0 25px 25px 25px;">
                     <?php
-                    $start_date = woocommerce_sales_evaluation_sanitize_date_param('start_date', date('Y-m-01'));
-                    $end_date = woocommerce_sales_evaluation_sanitize_date_param('end_date', date('Y-m-t'));
+                    $start_date = date('Y-m-01');
+                    $end_date = date('Y-m-t');
                     if (function_exists('wc_get_orders')) {
                         $facebook_stats = woocommerce_sales_evaluation_get_referral_stats($start_date, $end_date, 'facebook');
                         $line_stats = woocommerce_sales_evaluation_get_referral_stats($start_date, $end_date, 'line');
                         $google_stats = woocommerce_sales_evaluation_get_referral_stats($start_date, $end_date, 'google');
+                        $month_orders = woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
+                        $month_summary = woocommerce_sales_evaluation_get_sales_summary($month_orders);
                     } else {
                         die("WooCommerce ไม่พร้อมใช้งาน");
                     }
@@ -604,39 +746,33 @@ function woocommerce_sales_evaluation_page()
                             </span>
                         </div>
                     </div>
-                    <h2>รายการคำสั่งซื้อ</h2>
-                    <p><strong>ออกรายงานเมื่อวันที่:</strong> <?=date("d/m/Y")?> | <strong>ช่วงวันที่:</strong> <?php echo esc_html($start_date . ' ถึง ' . $end_date); ?></p>
-                    <form method="get" action="" class="no-print">
-                        <input type="hidden" name="page" value="woocommerce-sales-evaluation" />
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 100px 100px 100px; gap: 10px;">
-                            <div>
-                                <label for="start_date">วันที่เริ่มต้น: </label><br>
-                                <input type="date" id="start_date" name="start_date" value="<?php echo esc_attr($start_date); ?>" style="width: 100%;" />
-                            </div>
-                            <div>
-                                <label for="end_date">วันที่สิ้นสุด: </label><br>
-                                <input type="date" id="end_date" name="end_date" value="<?php echo esc_attr($end_date); ?>" style="width: 100%;" />
-                            </div>
-                            <div>
-                                <button type="submit" class="button button-outline-primary" style="width: 100%; margin-top: 20px;">กรอง</button>
-                            </div>
-                            <div>
-                                <a onclick="window.print();" class="button button-outline-primary" style="width: 100%; margin-top: 20px;">ออกรายงาน</a>
-                            </div>
-                            <div>
-                                <a href="<?php echo esc_url(wp_nonce_url(add_query_arg(array('page' => 'woocommerce-sales-evaluation', 'wse_export' => 'csv', 'start_date' => $start_date, 'end_date' => $end_date), admin_url('admin.php')), 'wse_export_csv')); ?>" class="button button-outline-primary" style="width: 100%; margin-top: 20px; text-align: center;">Export CSV</a>
-                            </div>
+                    <h2>สรุปภาพรวมยอดขายเดือนนี้ (<?=date("d/m/Y", strtotime($start_date))?> - <?=date("d/m/Y", strtotime($end_date))?>)</h2>
+                    <div class="stat_card_container">
+                        <div class="stat_card" style="border: 1.5px solid #5E244E; color: #5E244E;">
+                            <strong>🗃️ คำสั่งซื้อเดือนนี้</strong><br>
+                            <span><?php echo esc_html(count($month_orders)); ?> รายการ</span>
                         </div>
-                    </form>
+                        <div class="stat_card" style="border: 1.5px solid #AA1C41; color: #AA1C41;">
+                            <strong>💰 ยอดทั้งหมด</strong><br>
+                            <span><?php echo function_exists('wc_price') ? wc_price($month_summary['total']) : number_format($month_summary['total'], 2); ?></span>
+                        </div>
+                        <div class="stat_card" style="border: 1.5px solid #4274D9; color: #4274D9;">
+                            <strong>📈 Gross Sale</strong><br>
+                            <span><?php echo function_exists('wc_price') ? wc_price($month_summary['gross']) : number_format($month_summary['gross'], 2); ?></span>
+                        </div>
+                        <div class="stat_card" style="background: #293681; color: #fff;">
+                            <strong>💳 Net Sale</strong><br>
+                            <span><?php echo function_exists('wc_price') ? wc_price($month_summary['net']) : number_format($month_summary['net'], 2); ?></span>
+                        </div>
+                    </div>
+                    <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
+                        <h2 style="margin: 0;">รายการคำสั่งซื้อล่าสุด</h2>
+                        <a href="<?php echo esc_url(admin_url('admin.php?page=woocommerce-sales-evaluation&option=report')); ?>" class="button button-primary no-print">📈 ไปที่หน้ารายงานยอด (เลือกช่วงวันที่และ Export ได้) →</a>
+                    </div>
                     <?php
-                    $all_orders =woocommerce_sales_evaluation_get_all_orders($start_date, $end_date);
-                    $summary = woocommerce_sales_evaluation_get_sales_summary($all_orders);
-                    $all_orders_total = $summary['total'];
-                    $gross_sales = $summary['gross'];
-                    $total_refunded = $summary['refunded'];
-                    $net_sales = $summary['net'];
+                    $recent_orders = array_slice($month_orders, 0, 10);
                     ?>
-                    <div style="margin-top:24px; overflow:auto;">
+                    <div style="margin-top:16px; overflow:auto;">
                         <table class="wp-list-table widefat fixed striped" style="width:100%;border-collapse:collapse;">
                             <thead>
                                 <tr>
@@ -649,36 +785,20 @@ function woocommerce_sales_evaluation_page()
                                 </tr>
                             </thead>
                             <tbody>
-                                <?php if (empty($all_orders)) : ?>
-                                    <tr><td colspan="6">ไม่พบคำสั่งซื้อในช่วงวันที่ที่เลือก</td></tr>
+                                <?php if (empty($recent_orders)) : ?>
+                                    <tr><td colspan="6">ไม่พบคำสั่งซื้อในเดือนนี้</td></tr>
                                 <?php endif; ?>
-                                <?php foreach ($all_orders as $all_order) : ?>
+                                <?php foreach ($recent_orders as $all_order) : ?>
                                     <tr>
                                         <td><?php echo esc_html($all_order->get_date_created() ? $all_order->get_date_created()->date_i18n('Y-m-d H:i') : 'N/A'); ?></td>
                                         <td><a href="<?php echo esc_url($all_order->get_edit_order_url()); ?>" target="_blank"><?php echo esc_html($all_order->get_order_number()); ?></a></td>
                                         <td><?php echo esc_html(woocommerce_sales_evaluation_get_customer_name($all_order)); ?></td>
                                         <td><?php echo esc_html(woocommerce_sales_evaluation_get_items_text($all_order)); ?></td>
                                         <td><?php echo esc_html(wc_get_order_status_name($all_order->get_status())); ?></td>
-                                        <td><?php echo wc_price($all_order->get_total()); ?></td>
+                                        <td><?php echo function_exists('wc_price') ? wc_price($all_order->get_total()) : number_format($all_order->get_total(), 2); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
-                            <?php if (!empty($all_orders)) : ?>
-                            <tfoot>
-                                <tr>
-                                    <th colspan="5" style="text-align:right;">รวม <?php echo esc_html(count($all_orders)); ?> รายการ</th>
-                                    <th><?php echo wc_price($all_orders_total); ?></th>
-                                </tr>
-                                <tr>
-                                    <th colspan="5" style="text-align:right;">Gross Sale (completed + processing + on-hold)</th>
-                                    <th><?php echo wc_price($gross_sales); ?></th>
-                                </tr>
-                                <tr>
-                                    <th colspan="5" style="text-align:right;">Net Sale (Gross - คืนเงิน <?php echo wp_strip_all_tags(wc_price($total_refunded)); ?>)</th>
-                                    <th><?php echo wc_price($net_sales); ?></th>
-                                </tr>
-                            </tfoot>
-                            <?php endif; ?>
                         </table>
                     </div>
                 </div>
